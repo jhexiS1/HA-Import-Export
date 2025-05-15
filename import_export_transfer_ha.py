@@ -2,6 +2,8 @@ import requests
 import json
 import argparse
 import os
+import subprocess
+import shutil
 from getpass import getpass
 
 def prompt_if_missing(prompt_text, current_val):
@@ -11,7 +13,8 @@ def prompt_if_missing(prompt_text, current_val):
 parser = argparse.ArgumentParser(description="SentinelOne HyperAutomation Import/Export Tool")
 parser.add_argument("--mode", choices=["import", "export", "transfer"], required=True, help="Action to perform")
 parser.add_argument("--file", help="Workflow JSON file for import")
-parser.add_argument("--folder", help="Folder containing workflow files to import/export")
+parser.add_argument("--folder", help="Local folder path to import/export")
+parser.add_argument("--github", help="GitHub repo URL to pull workflows from")
 parser.add_argument("--url", help="Source SentinelOne console URL")
 parser.add_argument("--token", help="Source API token")
 parser.add_argument("--target-url", help="Target console URL (for transfer)")
@@ -27,6 +30,12 @@ headers = {
     "Content-Type": "application/json"
 }
 
+# Clone GitHub repo if specified
+if args.github:
+    print(f"🔽 Cloning GitHub repo: {args.github}")
+    args.folder = "./_repo_clone"
+    subprocess.run(["git", "clone", "--depth", "1", args.github, args.folder], check=True)
+
 # Helper: Import a single file
 def import_workflow(file, target_url, target_token):
     with open(file, 'r') as f:
@@ -41,7 +50,7 @@ def import_workflow(file, target_url, target_token):
     else:
         print(f"❌ Error {resp.status_code}: {resp.text}")
 
-# Helper: Export all workflows from a console
+# Helper: Export all workflows
 def export_workflows_to_folder(folder):
     print("📥 Fetching all workflows...")
     resp = requests.get(f"{console_url}/web/api/v2.1/hyperautomation/workflows", headers=headers)
@@ -62,7 +71,7 @@ def export_workflows_to_folder(folder):
         else:
             print(f"❌ Failed to fetch workflow {wf_id}: {wf_detail.status_code}")
 
-# Logic branching
+# Execute mode
 if args.mode == "import":
     if args.file:
         import_workflow(args.file, console_url, api_token)
@@ -70,8 +79,10 @@ if args.mode == "import":
         for file in os.listdir(args.folder):
             if file.endswith(".json"):
                 import_workflow(os.path.join(args.folder, file), console_url, api_token)
+        if args.github:
+            shutil.rmtree(args.folder, ignore_errors=True)
     else:
-        print("❌ Please provide --file or --folder for import mode.")
+        print("❌ Please provide --file, --folder, or --github for import mode.")
 
 elif args.mode == "export":
     if not args.folder:
@@ -87,3 +98,4 @@ elif args.mode == "transfer":
     for file in os.listdir(temp_folder):
         if file.endswith(".json"):
             import_workflow(os.path.join(temp_folder, file), target_url, target_token)
+    shutil.rmtree(temp_folder, ignore_errors=True)

@@ -6,6 +6,7 @@ TGT_URL="${TGT_URL:-}"
 TGT_TOKEN="${TGT_TOKEN:-}"
 MODE="$1"
 FOLDER="$2"
+REPO="$3"
 
 function import_workflow() {
   local wf_file="$1"
@@ -27,6 +28,13 @@ function export_workflows() {
   done
 }
 
+if [ "$REPO" != "" ]; then
+  echo "🔽 Cloning GitHub repo: $REPO"
+  rm -rf ./_repo_clone
+  git clone --depth 1 "$REPO" ./_repo_clone
+  FOLDER="./_repo_clone"
+fi
+
 case "$MODE" in
   "export")
     export_workflows
@@ -35,6 +43,7 @@ case "$MODE" in
     for wf in "$FOLDER"/*.json; do
       import_workflow "$wf"
     done
+    if [ "$REPO" != "" ]; then rm -rf "$FOLDER"; fi
     ;;
   "transfer")
     TMPDIR="./_tmp_ha_export"
@@ -45,6 +54,6 @@ case "$MODE" in
     done
     ;;
   *)
-    echo "Usage: $0 <export|import|transfer> <folder>"
+    echo "Usage: $0 <export|import|transfer> <folder> [repo]"
     ;;
 esac

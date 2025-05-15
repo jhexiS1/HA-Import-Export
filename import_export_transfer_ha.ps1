@@ -5,7 +5,8 @@ param (
   [string]$url,
   [string]$token,
   [string]$targetUrl,
-  [string]$targetToken
+  [string]$targetToken,
+  [string]$github
 )
 
 function Import-Workflow($wfFile, $targetUrl, $targetToken) {
@@ -41,6 +42,14 @@ function Export-Workflows($srcUrl, $srcToken, $outFolder) {
   }
 }
 
+# GitHub cloning support
+if ($github) {
+  Write-Host "🔽 Cloning GitHub repo: $github"
+  $folder = "./_repo_clone"
+  if (Test-Path $folder) { Remove-Item -Recurse -Force $folder }
+  git clone --depth 1 $github $folder
+}
+
 if ($mode -eq "export") {
   Export-Workflows $url $token $folder
 } elseif ($mode -eq "import") {
@@ -50,6 +59,7 @@ if ($mode -eq "export") {
     Get-ChildItem -Path $folder -Filter *.json | ForEach-Object {
       Import-Workflow $_.FullName $url $token
     }
+    if ($github) { Remove-Item -Recurse -Force $folder }
   }
 } elseif ($mode -eq "transfer") {
   $tempDir = "./tmp_export"
